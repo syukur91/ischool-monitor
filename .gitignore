@@ -1,0 +1,7 @@
+bin
+.env*
+vendor
+debug
+ischool-monitor*
+_notes
+.vscode

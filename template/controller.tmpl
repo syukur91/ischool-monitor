@@ -1,0 +1,98 @@
+package controller
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/labstack/echo"
+
+	"gitlab.com/nextid/tenant-api/api/schema"
+	"gitlab.com/nextid/tenant-api/pkg/apierror"
+	"gitlab.com/nextid/tenant-api/pkg/middleware"
+	"gitlab.com/nextid/tenant-api/pkg/query"
+	"gitlab.com/nextid/tenant-api/pkg/response"
+	"gitlab.com/nextid/tenant-api/service"
+)
+
+// {{ .Model }}Handler ...
+type {{ .Model }}Handler struct {
+	{{ .Model }}Service *service.{{ .Model }}Service
+}
+
+// SetRoutes ...
+func (h *{{ .Model }}Handler) SetRoutes(r *echo.Group) {
+	r.POST("/{{ .ModelLowerCase }}s", h.create{{ .Model }})
+	r.POST("/{{ .ModelLowerCase }}s-grid", h.grid{{ .Model }}s, middleware.KendoGrid)
+	r.GET("/{{ .ModelLowerCase }}s/:id", h.get{{ .Model }})
+	r.POST("/{{ .ModelLowerCase }}s/:id", h.update{{ .Model }})
+	r.DELETE("/{{ .ModelLowerCase }}s/:id", h.delete{{ .Model }})
+}
+
+func (h *{{ .Model }}Handler) create{{ .Model }}(c echo.Context) error {
+	create{{ .Model }} := new(schema.Create{{ .Model }}Request)
+	err := c.Bind(create{{ .Model }})
+	if err != nil {
+		return apierror.NewError(http.StatusUnprocessableEntity, http.StatusUnprocessableEntity, "Failed to get {{ .ModelLowerCase }} data. Probably content-type is not match with actual body type", errors.New("create{{ .Model }}: Failed to get {{ .ModelLowerCase }} data"))
+	}
+
+	err = c.Validate(create{{ .Model }})
+	if err != nil {
+		return apierror.NewError(http.StatusUnprocessableEntity, http.StatusUnprocessableEntity, "{{ .Model }} data invalid. One or more required fields is not set", errors.New("create{{ .Model }}: invalid {{ .ModelLowerCase }} data"))
+	}
+
+	create{{ .Model }}Response, err := h.{{ .Model }}Service.Create{{ .Model }}(create{{ .Model }})
+	if err != nil {
+		return err
+	}
+
+	return response.JSON(c, http.StatusOK, create{{ .Model }}Response)
+}
+
+func (h *{{ .Model }}Handler) grid{{ .Model }}s(c echo.Context) error {
+	gridParams := c.Get("gridParams").(*query.GridParams)
+
+	data, count, err := h.{{ .Model }}Service.List{{ .Model }}s(gridParams)
+	if err != nil {
+		return err
+	}
+
+	return response.JSONGrid(c, http.StatusOK, data, len(data), count)
+}
+
+func (h *{{ .Model }}Handler) get{{ .Model }}(c echo.Context) error {
+	id := c.Param("id")
+
+	get{{ .Model }}Response, err := h.{{ .Model }}Service.Get{{ .Model }}(id)
+	if err != nil {
+		return err
+	}
+
+	return response.JSON(c, http.StatusOK, get{{ .Model }}Response)
+}
+
+func (h *{{ .Model }}Handler) update{{ .Model }}(c echo.Context) error {
+	id := c.Param("id")
+
+	update{{ .Model }} := new(schema.Update{{ .Model }}Request)
+	err := c.Bind(update{{ .Model }})
+	if err != nil {
+		return apierror.NewError(http.StatusUnprocessableEntity, http.StatusUnprocessableEntity, "Failed to get {{ .ModelLowerCase }} data. Probably content-type is not match with actual body type", errors.New("create{{ .Model }}: Failed to get {{ .ModelLowerCase }} data"))
+	}
+
+	update{{ .Model }}Response, err := h.{{ .Model }}Service.Update{{ .Model }}(id, update{{ .Model }})
+	if err != nil {
+		return err
+	}
+
+	return response.JSON(c, http.StatusOK, update{{ .Model }}Response)
+}
+func (h *{{ .Model }}Handler) delete{{ .Model }}(c echo.Context) error {
+	id := c.Param("id")
+
+	err := h.{{ .Model }}Service.Delete{{ .Model }}(id)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}

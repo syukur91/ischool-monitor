@@ -1,0 +1,260 @@
+package service
+
+import (
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
+
+	"gitlab.com/nextid/tenant-api/api/schema"
+	"gitlab.com/nextid/tenant-api/pkg/apierror"
+	"gitlab.com/nextid/tenant-api/pkg/query"
+)
+
+// {{ .Model }}Service ...
+type {{ .Model }}Service struct {
+	db *sqlx.DB
+}
+
+// New{{ .Model }}Service ...
+func New{{ .Model }}Service(db *sqlx.DB) *{{ .Model }}Service {
+	return &{{ .Model }}Service{db: db}
+}
+
+// Create{{ .Model }} ...
+func (s *{{ .Model }}Service) Create{{ .Model }}(request *schema.Create{{ .Model }}Request) (*schema.{{ .Model }}Response, error) {
+	if request.Name == "" {
+		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "{{ .Model }} name is not set", errors.New("create{{ .ModelLowerCase }}: {{ .ModelLowerCase }} name is not set"))
+	}
+
+	if request.Description == "" {
+		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "{{ .Model }} description is not set", errors.New("create{{ .ModelLowerCase }}: {{ .ModelLowerCase }} description is not set"))
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "create{{ .ModelLowerCase }}: begin transaction failed"))
+	}
+
+	id := 0
+	var createdAt time.Time
+
+	{
+		stmt, err := tx.Prepare(`
+			INSERT INTO public.{{ .ModelLowerCase }}s (name, description)
+			VALUES($1, $2)
+			RETURNING id, created_at;
+		`)
+
+		if err != nil {
+			tx.Rollback()
+			return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "create{{ .ModelLowerCase }}: prepare insert statement failed"))
+		}
+		defer stmt.Close()
+
+		err = stmt.QueryRow(request.Name, request.Description).Scan(&id, &createdAt)
+		if err != nil {
+			tx.Rollback()
+
+			if strings.Index(err.Error(), "duplicate key value violates unique constraint \"{{ .ModelLowerCase }}_name_unique\"") > -1 {
+				return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "{{ .Model }} with same name already exists. Use different name", errors.Wrap(err, "create{{ .ModelLowerCase }}: {{ .Model }} with same name already exists"))
+			}
+
+			return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "create{{ .ModelLowerCase }}: exec insert statement failed"))
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "create{{ .ModelLowerCase }}: commit transaction failed"))
+	}
+
+	return &schema.{{ .Model }}Response{
+		ID:          id,
+		Name:        request.Name,
+		Description: request.Description,
+		CreatedAt:   &createdAt,
+	}, nil
+}
+
+// Get{{ .Model }} ...
+func (s *{{ .Model }}Service) Get{{ .Model }}(id string) (*schema.{{ .Model }}Response, error) {
+	if id == "" {
+		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "{{ .Model }} id is not set", errors.New("get{{ .ModelLowerCase }}: {{ .ModelLowerCase }} id is not set"))
+	}
+
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "get{{ .ModelLowerCase }}: begin transaction failed"))
+	}
+
+	{{ .ModelLowerCase }} := schema.{{ .Model }}Response{}
+	{
+		err := tx.Get(&{{ .ModelLowerCase }}, `
+			SELECT id,name,description,created_at,updated_at 
+			FROM public.{{ .ModelLowerCase }}s 
+			WHERE id=$1;`,
+			id)
+
+		if err != nil {
+			tx.Rollback()
+
+			if strings.Index(err.Error(), "sql: no rows in result set") > -1 {
+				return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "{{ .Model }} with id: "+id+" is not exists", errors.Wrap(err, "get{{ .ModelLowerCase }}: {{ .ModelLowerCase }} with id: "+id+" is not exists"))
+			}
+
+			return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "get{{ .ModelLowerCase }}: get data failed"))
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "get{{ .ModelLowerCase }}: commit transaction failed"))
+	}
+
+	return &{{ .ModelLowerCase }}, nil
+}
+
+// List{{ .Model }}s ...
+func (s *{{ .Model }}Service) List{{ .Model }}s(gridParams *query.GridParams) ([]schema.{{ .Model }}Response, int, error) {
+
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "list{{ .ModelLowerCase }}: begin transaction failed"))
+	}
+
+	{{ .ModelLowerCase }}s := []schema.{{ .Model }}Response{}
+	total := 0
+	{
+		dataStatement := "SELECT id,name,description,created_at,updated_at FROM public.{{ .ModelLowerCase }}s"
+		dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
+		err := tx.Select(&{{ .ModelLowerCase }}s, dataStatement+dataQuery, dataParams...)
+		if err != nil {
+			tx.Rollback()
+			return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "list{{ .ModelLowerCase }}: get data failed"))
+		}
+
+		countStatement := "SELECT count(*) FROM public.{{ .ModelLowerCase }}s"
+		countQuery, countParams := query.FilterQuery(gridParams, "", nil)
+		err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&total)
+		if err != nil {
+			tx.Rollback()
+			return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "list{{ .ModelLowerCase }}: get count failed"))
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "get{{ .ModelLowerCase }}: commit transaction failed"))
+	}
+
+	return {{ .ModelLowerCase }}s, total, nil
+}
+
+// Update{{ .Model }} ...
+func (s *{{ .Model }}Service) Update{{ .Model }}(id string, request *schema.Update{{ .Model }}Request) (*schema.{{ .Model }}Response, error) {
+	if id == "" {
+		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "{{ .Model }} id is not set", errors.New("update{{ .ModelLowerCase }}: {{ .ModelLowerCase }} id is not set"))
+	}
+
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "update{{ .ModelLowerCase }}: begin transaction failed"))
+	}
+
+	// get existing {{ .ModelLowerCase }}
+	{{ .ModelLowerCase }} := schema.{{ .Model }}Response{}
+	{
+		err := tx.Get(&{{ .ModelLowerCase }}, `
+			SELECT id,name,description,created_at,updated_at 
+			FROM public.{{ .ModelLowerCase }}s 
+			WHERE id=$1;`,
+			id)
+
+		if err != nil {
+			tx.Rollback()
+
+			if strings.Index(err.Error(), "sql: no rows in result set") > -1 {
+				return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "{{ .Model }} with id: "+id+" is not exists", errors.Wrap(err, "update{{ .ModelLowerCase }}: {{ .ModelLowerCase }} with id: "+id+" is not exists"))
+			}
+
+			return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "update{{ .ModelLowerCase }}: get data failed"))
+		}
+	}
+
+	// update {{ .ModelLowerCase }}
+	var updatedAt time.Time
+	{
+		// only update if not empty
+		if request.Name != "" {
+			{{ .ModelLowerCase }}.Name = request.Name
+		}
+
+		if request.Description != "" {
+			{{ .ModelLowerCase }}.Description = request.Description
+		}
+
+		err := tx.QueryRow(`
+			UPDATE public.{{ .ModelLowerCase }}s SET name=$1,description=$2,updated_at=DEFAULT
+			WHERE id=$3 returning updated_at `,
+			{{ .ModelLowerCase }}.Name, {{ .ModelLowerCase }}.Description, id).Scan(&updatedAt)
+
+		if err != nil {
+			tx.Rollback()
+
+			return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "update{{ .ModelLowerCase }}: update data failed"))
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "update{{ .ModelLowerCase }}: commit transaction failed"))
+	}
+
+	return &schema.{{ .Model }}Response{
+		ID:          {{ .ModelLowerCase }}.ID,
+		Name:        {{ .ModelLowerCase }}.Name,
+		Description: {{ .ModelLowerCase }}.Description,
+		CreatedAt:   {{ .ModelLowerCase }}.CreatedAt,
+		UpdatedAt:   &updatedAt,
+	}, nil
+}
+
+// Delete{{ .Model }} ...
+func (s *{{ .Model }}Service) Delete{{ .Model }}(id string) error {
+	if id == "" {
+		return apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "{{ .Model }} id is not set", errors.New("delete{{ .ModelLowerCase }}: {{ .ModelLowerCase }} id is not set"))
+	}
+
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "delete{{ .ModelLowerCase }}: begin transaction failed"))
+	}
+
+	var rows int64
+	{
+		result, err := tx.Exec(`
+			DELETE FROM public.{{ .ModelLowerCase }}s 
+			WHERE id=$1`,
+			id)
+		rows, _ = result.RowsAffected()
+
+		if err != nil {
+			tx.Rollback()
+			return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "delete{{ .ModelLowerCase }}: delete data failed"))
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "delete{{ .ModelLowerCase }}: commit transaction failed"))
+	}
+
+	if rows == 0 {
+		return apierror.NewError(http.StatusNotFound, http.StatusNotFound, "{{ .Model }} with id: "+id+" is not exists", errors.Wrap(err, "delete{{ .ModelLowerCase }}: {{ .ModelLowerCase }} with id: "+id+" is not exists"))
+	}
+
+	return nil
+}
