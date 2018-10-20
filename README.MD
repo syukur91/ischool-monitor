@@ -29,12 +29,12 @@ Several things that I would like to try using on this project:
 ## Create database and user
 
 ```
-$ createuser tenant
-$ createdb tenant
+$ createuser school
+$ createdb school
 
 $ psql
-# alter user tenant with encrypted password 'tenant123';
-# GRANT ALL PRIVILEGES ON DATABASE tenant to tenant;
+# alter user school with encrypted password 'school123';
+# GRANT ALL PRIVILEGES ON DATABASE school to school;
 ```
 
 ## Migration

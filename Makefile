@@ -21,6 +21,6 @@ test: migrate-down-test migrate-up-test
 rebuild-db: migrate-down-test migrate-up-test
 
 test-pkg: 
-	go test gitlab.com/nextid/tenant-api/pkg/query -v
+	go test github.com/syukur91/ischool-monitor/pkg/query -v
 
 .PHONY: migrate-up migrate-down run test test-pkg
