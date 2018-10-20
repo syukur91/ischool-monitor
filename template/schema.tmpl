@@ -6,21 +6,21 @@ import (
 
 // Create{{ .Model }}Request ...
 type Create{{ .Model }}Request struct {
-	Name        string `json:"name" validate:"required"`
-	Description string `json:"description" validate:"required"`
+	Nama        string `json:"nama" validate:"required"`
+	Deskripsi string `json:"deskripsi" validate:"required"`
 }
 
 // {{ .Model }}Response ...
 type {{ .Model }}Response struct {
 	ID          int        `json:"id" db:"id"`
-	Name        string     `json:"name" db:"name"`
-	Description string     `json:"description" db:"description"`
+	Nama        string     `json:"nama" db:"nama"`
+	Deskripsi   string     `json:"deskripsi" db:"deskripsi"`
 	CreatedAt   *time.Time `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 // Update{{ .Model }}Request ...
 type Update{{ .Model }}Request struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Nama        string `json:"nama"`
+	Deskripsi string `json:"deskripsi"`
 }

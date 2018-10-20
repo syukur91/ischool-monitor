@@ -25,12 +25,12 @@ func NewMata_PelajaranService(db *sqlx.DB) *Mata_PelajaranService {
 
 // CreateMata_Pelajaran ...
 func (s *Mata_PelajaranService) CreateMata_Pelajaran(request *schema.CreateMata_PelajaranRequest) (*schema.Mata_PelajaranResponse, error) {
-	if request.Name == "" {
-		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran name is not set", errors.New("createmata_pelajaran: mata_pelajaran name is not set"))
+	if request.Nama == "" {
+		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran nama is not set", errors.New("createmata_pelajaran: mata_pelajaran nama is not set"))
 	}
 
-	if request.Description == "" {
-		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran description is not set", errors.New("createmata_pelajaran: mata_pelajaran description is not set"))
+	if request.Kode == "" {
+		return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran kode is not set", errors.New("createmata_pelajaran: mata_pelajaran kode is not set"))
 	}
 
 	tx, err := s.db.Begin()
@@ -43,8 +43,8 @@ func (s *Mata_PelajaranService) CreateMata_Pelajaran(request *schema.CreateMata_
 
 	{
 		stmt, err := tx.Prepare(`
-			INSERT INTO public.mata_pelajarans (name, description)
-			VALUES($1, $2)
+			INSERT INTO public.mata_pelajaran (nama, kode, tingkat)
+			VALUES($1, $2, $3)
 			RETURNING id, created_at;
 		`)
 
@@ -54,12 +54,12 @@ func (s *Mata_PelajaranService) CreateMata_Pelajaran(request *schema.CreateMata_
 		}
 		defer stmt.Close()
 
-		err = stmt.QueryRow(request.Name, request.Description).Scan(&id, &createdAt)
+		err = stmt.QueryRow(request.Nama, request.Kode, request.Tingkat).Scan(&id, &createdAt)
 		if err != nil {
 			tx.Rollback()
 
-			if strings.Index(err.Error(), "duplicate key value violates unique constraint \"mata_pelajaran_name_unique\"") > -1 {
-				return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran with same name already exists. Use different name", errors.Wrap(err, "createmata_pelajaran: Mata_Pelajaran with same name already exists"))
+			if strings.Index(err.Error(), "duplicate key value violates unique constraint \"mata_pelajaran_kode_unique\"") > -1 {
+				return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran with same kode already exists. Use different kode", errors.Wrap(err, "createmata_pelajaran: Mata_Pelajaran with same kode already exists"))
 			}
 
 			return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createmata_pelajaran: exec insert statement failed"))
@@ -72,10 +72,11 @@ func (s *Mata_PelajaranService) CreateMata_Pelajaran(request *schema.CreateMata_
 	}
 
 	return &schema.Mata_PelajaranResponse{
-		ID:          id,
-		Name:        request.Name,
-		Description: request.Description,
-		CreatedAt:   &createdAt,
+		ID:        id,
+		Nama:      request.Nama,
+		Kode:      request.Kode,
+		Tingkat:   request.Tingkat,
+		CreatedAt: &createdAt,
 	}, nil
 }
 
@@ -93,8 +94,8 @@ func (s *Mata_PelajaranService) GetMata_Pelajaran(id string) (*schema.Mata_Pelaj
 	mata_pelajaran := schema.Mata_PelajaranResponse{}
 	{
 		err := tx.Get(&mata_pelajaran, `
-			SELECT id,name,description,created_at,updated_at 
-			FROM public.mata_pelajarans 
+			SELECT id,nama,kode,created_at,updated_at 
+			FROM public.mata_pelajaran 
 			WHERE id=$1;`,
 			id)
 
@@ -128,7 +129,7 @@ func (s *Mata_PelajaranService) ListMata_Pelajarans(gridParams *query.GridParams
 	mata_pelajarans := []schema.Mata_PelajaranResponse{}
 	total := 0
 	{
-		dataStatement := "SELECT id,name,description,created_at,updated_at FROM public.mata_pelajarans"
+		dataStatement := "SELECT id,nama,kode,created_at,updated_at FROM public.mata_pelajaran"
 		dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
 		err := tx.Select(&mata_pelajarans, dataStatement+dataQuery, dataParams...)
 		if err != nil {
@@ -136,7 +137,7 @@ func (s *Mata_PelajaranService) ListMata_Pelajarans(gridParams *query.GridParams
 			return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listmata_pelajaran: get data failed"))
 		}
 
-		countStatement := "SELECT count(*) FROM public.mata_pelajarans"
+		countStatement := "SELECT count(*) FROM public.mata_pelajaran"
 		countQuery, countParams := query.FilterQuery(gridParams, "", nil)
 		err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&total)
 		if err != nil {
@@ -168,8 +169,8 @@ func (s *Mata_PelajaranService) UpdateMata_Pelajaran(id string, request *schema.
 	mata_pelajaran := schema.Mata_PelajaranResponse{}
 	{
 		err := tx.Get(&mata_pelajaran, `
-			SELECT id,name,description,created_at,updated_at 
-			FROM public.mata_pelajarans 
+			SELECT id,nama,kode,tingkat,created_at,updated_at 
+			FROM public.mata_pelajaran 
 			WHERE id=$1;`,
 			id)
 
@@ -188,18 +189,22 @@ func (s *Mata_PelajaranService) UpdateMata_Pelajaran(id string, request *schema.
 	var updatedAt time.Time
 	{
 		// only update if not empty
-		if request.Name != "" {
-			mata_pelajaran.Name = request.Name
+		if request.Nama != "" {
+			mata_pelajaran.Nama = request.Nama
 		}
 
-		if request.Description != "" {
-			mata_pelajaran.Description = request.Description
+		if request.Kode != "" {
+			mata_pelajaran.Kode = request.Kode
+		}
+
+		if request.Tingkat != 0 {
+			mata_pelajaran.Tingkat = request.Tingkat
 		}
 
 		err := tx.QueryRow(`
-			UPDATE public.mata_pelajarans SET name=$1,description=$2,updated_at=DEFAULT
-			WHERE id=$3 returning updated_at `,
-			mata_pelajaran.Name, mata_pelajaran.Description, id).Scan(&updatedAt)
+			UPDATE public.mata_pelajaran SET nama=$1,kode=$2,tingkat=$3,updated_at=DEFAULT
+			WHERE id=$4 returning updated_at`,
+			mata_pelajaran.Nama, mata_pelajaran.Kode, mata_pelajaran.Tingkat, id).Scan(&updatedAt)
 
 		if err != nil {
 			tx.Rollback()
@@ -214,11 +219,12 @@ func (s *Mata_PelajaranService) UpdateMata_Pelajaran(id string, request *schema.
 	}
 
 	return &schema.Mata_PelajaranResponse{
-		ID:          mata_pelajaran.ID,
-		Name:        mata_pelajaran.Name,
-		Description: mata_pelajaran.Description,
-		CreatedAt:   mata_pelajaran.CreatedAt,
-		UpdatedAt:   &updatedAt,
+		ID:        mata_pelajaran.ID,
+		Nama:      mata_pelajaran.Nama,
+		Kode:      mata_pelajaran.Kode,
+		Tingkat:   mata_pelajaran.Tingkat,
+		CreatedAt: mata_pelajaran.CreatedAt,
+		UpdatedAt: &updatedAt,
 	}, nil
 }
 
@@ -236,7 +242,7 @@ func (s *Mata_PelajaranService) DeleteMata_Pelajaran(id string) error {
 	var rows int64
 	{
 		result, err := tx.Exec(`
-			DELETE FROM public.mata_pelajarans 
+			DELETE FROM public.mata_pelajaran 
 			WHERE id=$1`,
 			id)
 		rows, _ = result.RowsAffected()
