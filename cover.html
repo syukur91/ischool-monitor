@@ -1,0 +1,1483 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/syukur91/ischool-monitor/service/kelas.go (71.8%)</option>
+				
+				<option value="file1">github.com/syukur91/ischool-monitor/service/mata_pelajaran.go (75.0%)</option>
+				
+				<option value="file2">github.com/syukur91/ischool-monitor/service/siswa.go (73.0%)</option>
+				
+				<option value="file3">github.com/syukur91/ischool-monitor/service/user.go (0.0%)</option>
+				
+				<option value="file4">github.com/syukur91/ischool-monitor/service/wali_kelas.go (71.1%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package service
+
+import (
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/jmoiron/sqlx"
+        "github.com/pkg/errors"
+
+        "github.com/syukur91/ischool-monitor/api/schema"
+        "github.com/syukur91/ischool-monitor/pkg/apierror"
+        "github.com/syukur91/ischool-monitor/pkg/query"
+)
+
+// KelasService ...
+type KelasService struct {
+        db *sqlx.DB
+}
+
+// NewKelasService ...
+func NewKelasService(db *sqlx.DB) *KelasService <span class="cov8" title="1">{
+        return &amp;KelasService{db: db}
+}</span>
+
+// CreateKelas ...
+func (s *KelasService) CreateKelas(request *schema.CreateKelasRequest) (*schema.KelasResponse, error) <span class="cov8" title="1">{
+        if request.Nama == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Kelas nama is not set", errors.New("createkelas: kelas nama is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.Tingkat == 0 </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Kelas tingkat is not set", errors.New("createkelas: kelas tingkat is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createkelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">id := 0
+        var createdAt time.Time
+
+        </span><span class="cov8" title="1">{
+                stmt, err := tx.Prepare(`
+                        INSERT INTO public.kelas (nama, tingkat)
+                        VALUES($1, $2)
+                        RETURNING id, created_at;
+                `)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createkelas: prepare insert statement failed"))
+                }</span>
+                <span class="cov8" title="1">defer stmt.Close()
+
+                err = stmt.QueryRow(request.Nama, request.Tingkat).Scan(&amp;id, &amp;createdAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "duplicate key value violates unique constraint \"kelas_name_unique\"") &gt; -1 </span><span class="cov0" title="0">{
+                                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Kelas with same nama already exists. Use different nama", errors.Wrap(err, "createkelas: Kelas with same nama already exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createkelas: exec insert statement failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createkelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.KelasResponse{
+                ID:        id,
+                Nama:      request.Nama,
+                Tingkat:   request.Tingkat,
+                CreatedAt: &amp;createdAt,
+        }, nil</span>
+}
+
+// GetKelas ...
+func (s *KelasService) GetKelas(id string) (*schema.KelasResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Kelas id is not set", errors.New("getkelas: kelas id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getkelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">kelas := schema.KelasResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;kelas, `
+                        SELECT id,nama,tingkat,created_at,updated_at 
+                        FROM public.kelas 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Kelas with id: "+id+" is not exists", errors.Wrap(err, "getkelas: kelas with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getkelas: get data failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getkelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;kelas, nil</span>
+}
+
+// ListKelass ...
+func (s *KelasService) ListKelass(gridParams *query.GridParams) ([]schema.KelasResponse, int, error) <span class="cov8" title="1">{
+
+        tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listkelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">kelass := []schema.KelasResponse{}
+        total := 0
+        </span><span class="cov8" title="1">{
+                dataStatement := "SELECT id,nama,tingkat,created_at,updated_at FROM public.kelas"
+                dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
+                err := tx.Select(&amp;kelass, dataStatement+dataQuery, dataParams...)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction faileds", errors.Wrap(err, "listkelas: get data failed"))
+                }</span>
+
+                <span class="cov8" title="1">countStatement := "SELECT count(*) FROM public.kelas"
+                countQuery, countParams := query.FilterQuery(gridParams, "", nil)
+                err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&amp;total)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failedss", errors.Wrap(err, "listkelas: get count failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failedsss", errors.Wrap(err, "getkelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return kelass, total, nil</span>
+}
+
+// UpdateKelas ...
+func (s *KelasService) UpdateKelas(id string, request *schema.UpdateKelasRequest) (*schema.KelasResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Kelas id is not set", errors.New("updatekelas: kelas id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatekelas: begin transaction failed"))
+        }</span>
+
+        // get existing kelas
+        <span class="cov8" title="1">kelas := schema.KelasResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;kelas, `
+                        SELECT id,nama,tingkat,created_at,updated_at 
+                        FROM public.kelas 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Kelas with id: "+id+" is not exists", errors.Wrap(err, "updatekelas: kelas with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatekelas: get data failed"))</span>
+                }
+        }
+
+        // update kelas
+        <span class="cov8" title="1">var updatedAt time.Time
+        </span><span class="cov8" title="1">{
+                // only update if not empty
+                if request.Nama != "" </span><span class="cov8" title="1">{
+                        kelas.Nama = request.Nama
+                }</span>
+
+                <span class="cov8" title="1">if request.Tingkat != 0 </span><span class="cov8" title="1">{
+                        kelas.Tingkat = request.Tingkat
+                }</span>
+
+                <span class="cov8" title="1">err := tx.QueryRow(`
+                        UPDATE public.kelas SET nama=$1,tingkat=$2,updated_at=DEFAULT
+                        WHERE id=$3 returning updated_at `,
+                        kelas.Nama, kelas.Tingkat, id).Scan(&amp;updatedAt)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatekelas: update data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatekelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.KelasResponse{
+                ID:        kelas.ID,
+                Nama:      kelas.Nama,
+                Tingkat:   kelas.Tingkat,
+                CreatedAt: kelas.CreatedAt,
+                UpdatedAt: &amp;updatedAt,
+        }, nil</span>
+}
+
+// DeleteKelas ...
+func (s *KelasService) DeleteKelas(id string) error <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Kelas id is not set", errors.New("deletekelas: kelas id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletekelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">var rows int64
+        </span><span class="cov8" title="1">{
+                result, err := tx.Exec(`
+                        DELETE FROM public.kelas 
+                        WHERE id=$1`,
+                        id)
+                rows, _ = result.RowsAffected()
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletekelas: delete data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletekelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">if rows == 0 </span><span class="cov8" title="1">{
+                return apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Kelas with id: "+id+" is not exists", errors.Wrap(err, "deletekelas: kelas with id: "+id+" is not exists"))
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package service
+
+import (
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/jmoiron/sqlx"
+        "github.com/pkg/errors"
+
+        "github.com/syukur91/ischool-monitor/api/schema"
+        "github.com/syukur91/ischool-monitor/pkg/apierror"
+        "github.com/syukur91/ischool-monitor/pkg/query"
+)
+
+// Mata_PelajaranService ...
+type Mata_PelajaranService struct {
+        db *sqlx.DB
+}
+
+// NewMata_PelajaranService ...
+func NewMata_PelajaranService(db *sqlx.DB) *Mata_PelajaranService <span class="cov8" title="1">{
+        return &amp;Mata_PelajaranService{db: db}
+}</span>
+
+// CreateMata_Pelajaran ...
+func (s *Mata_PelajaranService) CreateMata_Pelajaran(request *schema.CreateMata_PelajaranRequest) (*schema.Mata_PelajaranResponse, error) <span class="cov8" title="1">{
+        if request.Nama == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran nama is not set", errors.New("createmata_pelajaran: mata_pelajaran nama is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.Kode == "" </span><span class="cov8" title="1">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran kode is not set", errors.New("createmata_pelajaran: mata_pelajaran kode is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createmata_pelajaran: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">id := 0
+        var createdAt time.Time
+
+        </span><span class="cov8" title="1">{
+                stmt, err := tx.Prepare(`
+                        INSERT INTO public.mata_pelajaran (nama, kode, tingkat)
+                        VALUES($1, $2, $3)
+                        RETURNING id, created_at;
+                `)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createmata_pelajaran: prepare insert statement failed"))
+                }</span>
+                <span class="cov8" title="1">defer stmt.Close()
+
+                err = stmt.QueryRow(request.Nama, request.Kode, request.Tingkat).Scan(&amp;id, &amp;createdAt)
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "duplicate key value violates unique constraint \"mata_pelajaran_kode_unique\"") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran with same kode already exists. Use different kode", errors.Wrap(err, "createmata_pelajaran: Mata_Pelajaran with same kode already exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createmata_pelajaran: exec insert statement failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createmata_pelajaran: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.Mata_PelajaranResponse{
+                ID:        id,
+                Nama:      request.Nama,
+                Kode:      request.Kode,
+                Tingkat:   request.Tingkat,
+                CreatedAt: &amp;createdAt,
+        }, nil</span>
+}
+
+// GetMata_Pelajaran ...
+func (s *Mata_PelajaranService) GetMata_Pelajaran(id string) (*schema.Mata_PelajaranResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran id is not set", errors.New("getmata_pelajaran: mata_pelajaran id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getmata_pelajaran: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">mata_pelajaran := schema.Mata_PelajaranResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;mata_pelajaran, `
+                        SELECT id,nama,kode,created_at,updated_at 
+                        FROM public.mata_pelajaran 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Mata_Pelajaran with id: "+id+" is not exists", errors.Wrap(err, "getmata_pelajaran: mata_pelajaran with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getmata_pelajaran: get data failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getmata_pelajaran: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;mata_pelajaran, nil</span>
+}
+
+// ListMata_Pelajarans ...
+func (s *Mata_PelajaranService) ListMata_Pelajarans(gridParams *query.GridParams) ([]schema.Mata_PelajaranResponse, int, error) <span class="cov8" title="1">{
+
+        tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listmata_pelajaran: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">mata_pelajarans := []schema.Mata_PelajaranResponse{}
+        total := 0
+        </span><span class="cov8" title="1">{
+                dataStatement := "SELECT id,nama,kode,created_at,updated_at FROM public.mata_pelajaran"
+                dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
+                err := tx.Select(&amp;mata_pelajarans, dataStatement+dataQuery, dataParams...)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listmata_pelajaran: get data failed"))
+                }</span>
+
+                <span class="cov8" title="1">countStatement := "SELECT count(*) FROM public.mata_pelajaran"
+                countQuery, countParams := query.FilterQuery(gridParams, "", nil)
+                err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&amp;total)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listmata_pelajaran: get count failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getmata_pelajaran: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return mata_pelajarans, total, nil</span>
+}
+
+// UpdateMata_Pelajaran ...
+func (s *Mata_PelajaranService) UpdateMata_Pelajaran(id string, request *schema.UpdateMata_PelajaranRequest) (*schema.Mata_PelajaranResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran id is not set", errors.New("updatemata_pelajaran: mata_pelajaran id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatemata_pelajaran: begin transaction failed"))
+        }</span>
+
+        // get existing mata_pelajaran
+        <span class="cov8" title="1">mata_pelajaran := schema.Mata_PelajaranResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;mata_pelajaran, `
+                        SELECT id,nama,kode,tingkat,created_at,updated_at 
+                        FROM public.mata_pelajaran 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Mata_Pelajaran with id: "+id+" is not exists", errors.Wrap(err, "updatemata_pelajaran: mata_pelajaran with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatemata_pelajaran: get data failed"))</span>
+                }
+        }
+
+        // update mata_pelajaran
+        <span class="cov8" title="1">var updatedAt time.Time
+        </span><span class="cov8" title="1">{
+                // only update if not empty
+                if request.Nama != "" </span><span class="cov8" title="1">{
+                        mata_pelajaran.Nama = request.Nama
+                }</span>
+
+                <span class="cov8" title="1">if request.Kode != "" </span><span class="cov0" title="0">{
+                        mata_pelajaran.Kode = request.Kode
+                }</span>
+
+                <span class="cov8" title="1">if request.Tingkat != 0 </span><span class="cov8" title="1">{
+                        mata_pelajaran.Tingkat = request.Tingkat
+                }</span>
+
+                <span class="cov8" title="1">err := tx.QueryRow(`
+                        UPDATE public.mata_pelajaran SET nama=$1,kode=$2,tingkat=$3,updated_at=DEFAULT
+                        WHERE id=$4 returning updated_at`,
+                        mata_pelajaran.Nama, mata_pelajaran.Kode, mata_pelajaran.Tingkat, id).Scan(&amp;updatedAt)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatemata_pelajaran: update data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatemata_pelajaran: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.Mata_PelajaranResponse{
+                ID:        mata_pelajaran.ID,
+                Nama:      mata_pelajaran.Nama,
+                Kode:      mata_pelajaran.Kode,
+                Tingkat:   mata_pelajaran.Tingkat,
+                CreatedAt: mata_pelajaran.CreatedAt,
+                UpdatedAt: &amp;updatedAt,
+        }, nil</span>
+}
+
+// DeleteMata_Pelajaran ...
+func (s *Mata_PelajaranService) DeleteMata_Pelajaran(id string) error <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Mata_Pelajaran id is not set", errors.New("deletemata_pelajaran: mata_pelajaran id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletemata_pelajaran: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">var rows int64
+        </span><span class="cov8" title="1">{
+                result, err := tx.Exec(`
+                        DELETE FROM public.mata_pelajaran 
+                        WHERE id=$1`,
+                        id)
+                rows, _ = result.RowsAffected()
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletemata_pelajaran: delete data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletemata_pelajaran: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">if rows == 0 </span><span class="cov8" title="1">{
+                return apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Mata_Pelajaran with id: "+id+" is not exists", errors.Wrap(err, "deletemata_pelajaran: mata_pelajaran with id: "+id+" is not exists"))
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package service
+
+import (
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/jmoiron/sqlx"
+        "github.com/pkg/errors"
+
+        "github.com/syukur91/ischool-monitor/api/schema"
+        "github.com/syukur91/ischool-monitor/pkg/apierror"
+        "github.com/syukur91/ischool-monitor/pkg/query"
+)
+
+// SiswaService ...
+type SiswaService struct {
+        db *sqlx.DB
+}
+
+// NewSiswaService ...
+func NewSiswaService(db *sqlx.DB) *SiswaService <span class="cov8" title="1">{
+        return &amp;SiswaService{db: db}
+}</span>
+
+// CreateSiswa ...
+func (s *SiswaService) CreateSiswa(request *schema.CreateSiswaRequest) (*schema.SiswaResponse, error) <span class="cov8" title="1">{
+        if request.Nama == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa nama is not set", errors.New("createsiswa: siswa nama is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.IDKelas == 0 </span><span class="cov8" title="1">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa id kelas is not set", errors.New("createsiswa: siswa id kelas is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.IDWaliKelas == 0 </span><span class="cov8" title="1">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa id wali kelas is not set", errors.New("createsiswa: siswa id wali kelas is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.Tingkat == 0 </span><span class="cov8" title="1">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa tingkat is not set", errors.New("createsiswa: siswa tingkat is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.Alamat == "" </span><span class="cov8" title="1">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa alamat is not set", errors.New("createsiswa: siswa alamat is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createsiswa: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">id := 0
+        var createdAt time.Time
+
+        </span><span class="cov8" title="1">{
+                stmt, err := tx.Prepare(`
+                        INSERT INTO public.siswa (nama, id_kelas, id_wali_kelas, tingkat, alamat )
+                        VALUES($1, $2, $3, $4, $5)
+                        RETURNING id, created_at;
+                `)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createsiswa: prepare insert statement failed"))
+                }</span>
+                <span class="cov8" title="1">defer stmt.Close()
+
+                err = stmt.QueryRow(request.Nama, request.IDKelas, request.IDWaliKelas, request.Tingkat, request.Alamat).Scan(&amp;id, &amp;createdAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "duplicate key value violates unique constraint \"siswa_name_unique\"") &gt; -1 </span><span class="cov0" title="0">{
+                                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa with same nama already exists. Use different nama", errors.Wrap(err, "createsiswa: Siswa with same nama already exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createsiswa: exec insert statement failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createsiswa: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.SiswaResponse{
+                ID:          id,
+                IDKelas:     request.IDKelas,
+                IDWaliKelas: request.IDWaliKelas,
+                Tingkat:     request.Tingkat,
+                Alamat:      request.Alamat,
+                CreatedAt:   &amp;createdAt,
+        }, nil</span>
+}
+
+// GetSiswa ...
+func (s *SiswaService) GetSiswa(id string) (*schema.SiswaResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa id is not set", errors.New("getsiswa: siswa id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getsiswa: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">siswa := schema.SiswaResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;siswa, `
+                        SELECT id,nama,id_kelas,id_wali_kelas,tingkat,alamat,created_at,updated_at 
+                        FROM public.siswa 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Siswa with id: "+id+" is not exists", errors.Wrap(err, "getsiswa: siswa with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getsiswa: get data failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getsiswa: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;siswa, nil</span>
+}
+
+// ListSiswas ...
+func (s *SiswaService) ListSiswas(gridParams *query.GridParams) ([]schema.SiswaResponse, int, error) <span class="cov8" title="1">{
+
+        tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listsiswa: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">siswas := []schema.SiswaResponse{}
+        total := 0
+        </span><span class="cov8" title="1">{
+                dataStatement := "SELECT id,nama,id_kelas,id_wali_kelas,tingkat,alamat,created_at,updated_at FROM public.siswa"
+                dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
+                err := tx.Select(&amp;siswas, dataStatement+dataQuery, dataParams...)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listsiswa: get data failed"))
+                }</span>
+
+                <span class="cov8" title="1">countStatement := "SELECT count(*) FROM public.siswa"
+                countQuery, countParams := query.FilterQuery(gridParams, "", nil)
+                err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&amp;total)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listsiswa: get count failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getsiswa: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return siswas, total, nil</span>
+}
+
+// UpdateSiswa ...
+func (s *SiswaService) UpdateSiswa(id string, request *schema.UpdateSiswaRequest) (*schema.SiswaResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa id is not set", errors.New("updatesiswa: siswa id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatesiswa: begin transaction failed"))
+        }</span>
+
+        // get existing siswa
+        <span class="cov8" title="1">siswa := schema.SiswaResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;siswa, `
+                        SELECT id,nama,id_kelas,id_wali_kelas,tingkat,alamat,created_at,updated_at 
+                        FROM public.siswa 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Siswa with id: "+id+" is not exists", errors.Wrap(err, "updatesiswa: siswa with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatesiswa: get data failed"))</span>
+                }
+        }
+
+        // update siswa
+        <span class="cov8" title="1">var updatedAt time.Time
+        </span><span class="cov8" title="1">{
+                // only update if not empty
+                if request.Nama != "" </span><span class="cov8" title="1">{
+                        siswa.Nama = request.Nama
+                }</span>
+
+                <span class="cov8" title="1">if request.IDKelas != 0 </span><span class="cov0" title="0">{
+                        siswa.IDKelas = request.IDKelas
+                }</span>
+
+                <span class="cov8" title="1">if request.IDWaliKelas != 0 </span><span class="cov0" title="0">{
+                        siswa.IDWaliKelas = request.IDWaliKelas
+                }</span>
+
+                <span class="cov8" title="1">if request.Tingkat != 0 </span><span class="cov0" title="0">{
+                        siswa.Tingkat = request.Tingkat
+                }</span>
+
+                <span class="cov8" title="1">if request.Alamat != "" </span><span class="cov8" title="1">{
+                        siswa.Alamat = request.Alamat
+                }</span>
+
+                <span class="cov8" title="1">err := tx.QueryRow(`
+                        UPDATE public.siswa SET nama=$1,id_kelas=$2,id_wali_kelas=$3,tingkat=$4,alamat=$5,updated_at=DEFAULT
+                        WHERE id=$6 returning updated_at `,
+                        siswa.Nama, siswa.IDKelas, siswa.IDWaliKelas, siswa.Tingkat, siswa.Alamat, id).Scan(&amp;updatedAt)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatesiswa: update data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatesiswa: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.SiswaResponse{
+                ID:          siswa.ID,
+                Nama:        siswa.Nama,
+                IDKelas:     siswa.IDKelas,
+                IDWaliKelas: siswa.IDWaliKelas,
+                Tingkat:     siswa.Tingkat,
+                Alamat:      siswa.Alamat,
+                CreatedAt:   siswa.CreatedAt,
+                UpdatedAt:   &amp;updatedAt,
+        }, nil</span>
+}
+
+// DeleteSiswa ...
+func (s *SiswaService) DeleteSiswa(id string) error <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Siswa id is not set", errors.New("deletesiswa: siswa id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletesiswa: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">var rows int64
+        </span><span class="cov8" title="1">{
+                result, err := tx.Exec(`
+                        DELETE FROM public.siswa 
+                        WHERE id=$1`,
+                        id)
+                rows, _ = result.RowsAffected()
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletesiswa: delete data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletesiswa: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">if rows == 0 </span><span class="cov8" title="1">{
+                return apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Siswa with id: "+id+" is not exists", errors.Wrap(err, "deletesiswa: siswa with id: "+id+" is not exists"))
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package service
+
+import (
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/jmoiron/sqlx"
+        "github.com/pkg/errors"
+
+        "github.com/syukur91/ischool-monitor/api/schema"
+        "github.com/syukur91/ischool-monitor/pkg/apierror"
+        "github.com/syukur91/ischool-monitor/pkg/query"
+)
+
+// UserService ...
+type UserService struct {
+        db *sqlx.DB
+}
+
+// NewUserService ...
+func NewUserService(db *sqlx.DB) *UserService <span class="cov0" title="0">{
+        return &amp;UserService{db: db}
+}</span>
+
+// CreateUser ...
+func (s *UserService) CreateUser(request *schema.CreateUserRequest) (*schema.UserResponse, error) <span class="cov0" title="0">{
+        if request.Nama == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User nama is not set", errors.New("createuser: user nama is not set"))
+        }</span>
+
+        <span class="cov0" title="0">if request.Alamat == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User alamat is not set", errors.New("createuser: user alamat is not set"))
+        }</span>
+
+        <span class="cov0" title="0">if request.Password == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User password is not set", errors.New("createuser: user password is not set"))
+        }</span>
+
+        <span class="cov0" title="0">if request.Telepon == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User telepon is not set", errors.New("createuser: user telepon is not set"))
+        }</span>
+
+        <span class="cov0" title="0">tx, err := s.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createuser: begin transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">id := 0
+        var createdAt time.Time
+
+        </span><span class="cov0" title="0">{
+                stmt, err := tx.Prepare(`
+                        INSERT INTO public.users (nama, alamat, password, telepon)
+                        VALUES($1, $2, $3, $4)
+                        RETURNING id, created_at;
+                `)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createuser: prepare insert statement failed"))
+                }</span>
+                <span class="cov0" title="0">defer stmt.Close()
+
+                err = stmt.QueryRow(request.Nama, request.Alamat, request.Password, request.Telepon).Scan(&amp;id, &amp;createdAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "duplicate key value violates unique constraint \"user_name_unique\"") &gt; -1 </span><span class="cov0" title="0">{
+                                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User with same nama already exists. Use different nama", errors.Wrap(err, "createuser: User with same nama already exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createuser: exec insert statement failed"))</span>
+                }
+        }
+
+        <span class="cov0" title="0">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createuser: commit transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">return &amp;schema.UserResponse{
+                ID:        id,
+                Nama:      request.Nama,
+                Alamat:    request.Alamat,
+                Password:  request.Password,
+                Telepon:   request.Telepon,
+                CreatedAt: &amp;createdAt,
+        }, nil</span>
+}
+
+// GetUser ...
+func (s *UserService) GetUser(id string) (*schema.UserResponse, error) <span class="cov0" title="0">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User id is not set", errors.New("getuser: user id is not set"))
+        }</span>
+
+        <span class="cov0" title="0">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getuser: begin transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">user := schema.UserResponse{}
+        </span><span class="cov0" title="0">{
+                err := tx.Get(&amp;user, `
+                        SELECT id,nama,alamat,password,telepon,created_at,updated_at 
+                        FROM public.users 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov0" title="0">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "User with id: "+id+" is not exists", errors.Wrap(err, "getuser: user with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getuser: get data failed"))</span>
+                }
+        }
+
+        <span class="cov0" title="0">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getuser: commit transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+// ListUsers ...
+func (s *UserService) ListUsers(gridParams *query.GridParams) ([]schema.UserResponse, int, error) <span class="cov0" title="0">{
+
+        tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listuser: begin transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">users := []schema.UserResponse{}
+        total := 0
+        </span><span class="cov0" title="0">{
+                dataStatement := "SELECT id,nama,alamat,password,telepon,created_at,updated_at FROM public.users"
+                dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
+                err := tx.Select(&amp;users, dataStatement+dataQuery, dataParams...)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listuser: get data failed"))
+                }</span>
+
+                <span class="cov0" title="0">countStatement := "SELECT count(*) FROM public.users"
+                countQuery, countParams := query.FilterQuery(gridParams, "", nil)
+                err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&amp;total)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listuser: get count failed"))
+                }</span>
+        }
+
+        <span class="cov0" title="0">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getuser: commit transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">return users, total, nil</span>
+}
+
+// UpdateUser ...
+func (s *UserService) UpdateUser(id string, request *schema.UpdateUserRequest) (*schema.UserResponse, error) <span class="cov0" title="0">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User id is not set", errors.New("updateuser: user id is not set"))
+        }</span>
+
+        <span class="cov0" title="0">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updateuser: begin transaction failed"))
+        }</span>
+
+        // get existing user
+        <span class="cov0" title="0">user := schema.UserResponse{}
+        </span><span class="cov0" title="0">{
+                err := tx.Get(&amp;user, `
+                        SELECT id,nama,alamat,password,telepon,created_at,updated_at 
+                        FROM public.users 
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov0" title="0">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "User with id: "+id+" is not exists", errors.Wrap(err, "updateuser: user with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updateuser: get data failed"))</span>
+                }
+        }
+
+        // update user
+        <span class="cov0" title="0">var updatedAt time.Time
+        </span><span class="cov0" title="0">{
+                // only update if not empty
+                if request.Nama != "" </span><span class="cov0" title="0">{
+                        user.Nama = request.Nama
+                }</span>
+
+                <span class="cov0" title="0">if request.Alamat != "" </span><span class="cov0" title="0">{
+                        user.Alamat = request.Alamat
+                }</span>
+
+                <span class="cov0" title="0">if request.Password != "" </span><span class="cov0" title="0">{
+                        user.Password = request.Password
+                }</span>
+
+                <span class="cov0" title="0">if request.Telepon != "" </span><span class="cov0" title="0">{
+                        user.Telepon = request.Telepon
+                }</span>
+
+                <span class="cov0" title="0">err := tx.QueryRow(`
+                        UPDATE public.users SET nama=$1,alamat=$2,password=$3,telepon=$4,updated_at=DEFAULT
+                        WHERE id=$5 returning updated_at `,
+                        user.Nama, user.Alamat, user.Password, user.Telepon, id).Scan(&amp;updatedAt)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updateuser: update data failed"))
+                }</span>
+        }
+
+        <span class="cov0" title="0">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updateuser: commit transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">return &amp;schema.UserResponse{
+                ID:        user.ID,
+                Nama:      user.Nama,
+                Alamat:    user.Alamat,
+                Password:  user.Password,
+                Telepon:   user.Telepon,
+                CreatedAt: user.CreatedAt,
+                UpdatedAt: &amp;updatedAt,
+        }, nil</span>
+}
+
+// DeleteUser ...
+func (s *UserService) DeleteUser(id string) error <span class="cov0" title="0">{
+        if id == "" </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "User id is not set", errors.New("deleteuser: user id is not set"))
+        }</span>
+
+        <span class="cov0" title="0">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deleteuser: begin transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">var rows int64
+        </span><span class="cov0" title="0">{
+                result, err := tx.Exec(`
+                        DELETE FROM public.users 
+                        WHERE id=$1`,
+                        id)
+                rows, _ = result.RowsAffected()
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deleteuser: delete data failed"))
+                }</span>
+        }
+
+        <span class="cov0" title="0">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deleteuser: commit transaction failed"))
+        }</span>
+
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusNotFound, http.StatusNotFound, "User with id: "+id+" is not exists", errors.Wrap(err, "deleteuser: user with id: "+id+" is not exists"))
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package service
+
+import (
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/jmoiron/sqlx"
+        "github.com/pkg/errors"
+
+        "github.com/syukur91/ischool-monitor/api/schema"
+        "github.com/syukur91/ischool-monitor/pkg/apierror"
+        "github.com/syukur91/ischool-monitor/pkg/query"
+)
+
+// Wali_KelasService ...
+type Wali_KelasService struct {
+        db *sqlx.DB
+}
+
+// NewWali_KelasService ...
+func NewWali_KelasService(db *sqlx.DB) *Wali_KelasService <span class="cov8" title="1">{
+        return &amp;Wali_KelasService{db: db}
+}</span>
+
+// CreateWali_Kelas ...
+func (s *Wali_KelasService) CreateWali_Kelas(request *schema.CreateWali_KelasRequest) (*schema.Wali_KelasResponse, error) <span class="cov8" title="1">{
+        if request.Nama == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas nama is not set", errors.New("createwali_kelas: wali_kelas nama is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.Alamat == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas alamat is not set", errors.New("createwali_kelas: wali_kelas alamat is not set"))
+        }</span>
+
+        <span class="cov8" title="1">if request.Telpon == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas telpon is not set", errors.New("createwali_kelas: wali_kelas telpon is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createwali_kelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">id := 0
+        var createdAt time.Time
+
+        </span><span class="cov8" title="1">{
+                stmt, err := tx.Prepare(`
+                        INSERT INTO public.wali_kelas (nama, alamat, telpon)
+                        VALUES($1, $2, $3)
+                        RETURNING id, created_at;
+                `)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createwali_kelas: prepare insert statement failed"))
+                }</span>
+                <span class="cov8" title="1">defer stmt.Close()
+
+                err = stmt.QueryRow(request.Nama, request.Alamat, request.Telpon).Scan(&amp;id, &amp;createdAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "duplicate key value violates unique constraint \"wali_kelas_name_unique\"") &gt; -1 </span><span class="cov0" title="0">{
+                                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas with same nama already exists. Use different nama", errors.Wrap(err, "createwali_kelas: Wali_Kelas with same nama already exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createwali_kelas: exec insert statement failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "createwali_kelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.Wali_KelasResponse{
+                ID:        id,
+                Nama:      request.Nama,
+                Alamat:    request.Alamat,
+                Telpon:    request.Telpon,
+                CreatedAt: &amp;createdAt,
+        }, nil</span>
+}
+
+// GetWali_Kelas ...
+func (s *Wali_KelasService) GetWali_Kelas(id string) (*schema.Wali_KelasResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas id is not set", errors.New("getwali_kelas: wali_kelas id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction faileds", errors.Wrap(err, "getwali_kelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">wali_kelas := schema.Wali_KelasResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;wali_kelas, `
+                        SELECT id,nama,alamat,telpon,created_at,updated_at 
+                        FROM public.wali_kelas
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Wali_Kelas with id: "+id+" is not exists", errors.Wrap(err, "getwali_kelas: wali_kelas with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failedss", errors.Wrap(err, "getwali_kelas: get data failed"))</span>
+                }
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failedsss", errors.Wrap(err, "getwali_kelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;wali_kelas, nil</span>
+}
+
+// ListWali_Kelass ...
+func (s *Wali_KelasService) ListWali_Kelass(gridParams *query.GridParams) ([]schema.Wali_KelasResponse, int, error) <span class="cov8" title="1">{
+
+        tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listwali_kelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">wali_kelass := []schema.Wali_KelasResponse{}
+        total := 0
+        </span><span class="cov8" title="1">{
+                dataStatement := "SELECT id,nama,alamat,telpon,created_at,updated_at FROM public.wali_kelas"
+                dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
+                err := tx.Select(&amp;wali_kelass, dataStatement+dataQuery, dataParams...)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listwali_kelas: get data failed"))
+                }</span>
+
+                <span class="cov8" title="1">countStatement := "SELECT count(*) FROM public.wali_kelas"
+                countQuery, countParams := query.FilterQuery(gridParams, "", nil)
+                err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&amp;total)
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listwali_kelas: get count failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "getwali_kelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return wali_kelass, total, nil</span>
+}
+
+// UpdateWali_Kelas ...
+func (s *Wali_KelasService) UpdateWali_Kelas(id string, request *schema.UpdateWali_KelasRequest) (*schema.Wali_KelasResponse, error) <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas id is not set", errors.New("updatewali_kelas: wali_kelas id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatewali_kelas: begin transaction failed"))
+        }</span>
+
+        // get existing wali_kelas
+        <span class="cov8" title="1">wali_kelas := schema.Wali_KelasResponse{}
+        </span><span class="cov8" title="1">{
+                err := tx.Get(&amp;wali_kelas, `
+                        SELECT id,nama,alamat,telpon,created_at,updated_at 
+                        FROM public.wali_kelas
+                        WHERE id=$1;`,
+                        id)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        tx.Rollback()
+
+                        if strings.Index(err.Error(), "sql: no rows in result set") &gt; -1 </span><span class="cov8" title="1">{
+                                return nil, apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Wali_Kelas with id: "+id+" is not exists", errors.Wrap(err, "updatewali_kelas: wali_kelas with id: "+id+" is not exists"))
+                        }</span>
+
+                        <span class="cov0" title="0">return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "updatewali_kelas: get data failed"))</span>
+                }
+        }
+
+        // update wali_kelas
+        <span class="cov8" title="1">var updatedAt time.Time
+        </span><span class="cov8" title="1">{
+                // only update if not empty
+                if request.Nama != "" </span><span class="cov8" title="1">{
+                        wali_kelas.Nama = request.Nama
+                }</span>
+
+                <span class="cov8" title="1">if request.Alamat != "" </span><span class="cov8" title="1">{
+                        wali_kelas.Alamat = request.Alamat
+                }</span>
+
+                <span class="cov8" title="1">if request.Telpon != "" </span><span class="cov0" title="0">{
+                        wali_kelas.Telpon = request.Telpon
+                }</span>
+
+                <span class="cov8" title="1">err := tx.QueryRow(`
+                        UPDATE public.wali_kelas SET nama=$1,alamat=$2,telpon=$3,updated_at=DEFAULT
+                        WHERE id=$4 returning updated_at `,
+                        wali_kelas.Nama, wali_kelas.Alamat, wali_kelas.Telpon, id).Scan(&amp;updatedAt)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+
+                        return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failedss", errors.Wrap(err, "updatewali_kelas: update data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failedsss", errors.Wrap(err, "updatewali_kelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">return &amp;schema.Wali_KelasResponse{
+                ID:        wali_kelas.ID,
+                Nama:      wali_kelas.Nama,
+                Alamat:    wali_kelas.Alamat,
+                Telpon:    wali_kelas.Telpon,
+                CreatedAt: wali_kelas.CreatedAt,
+                UpdatedAt: &amp;updatedAt,
+        }, nil</span>
+}
+
+// DeleteWali_Kelas ...
+func (s *Wali_KelasService) DeleteWali_Kelas(id string) error <span class="cov8" title="1">{
+        if id == "" </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusBadRequest, http.StatusBadRequest, "Wali_Kelas id is not set", errors.New("deletewali_kelas: wali_kelas id is not set"))
+        }</span>
+
+        <span class="cov8" title="1">tx, err := s.db.Beginx()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletewali_kelas: begin transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">var rows int64
+        </span><span class="cov8" title="1">{
+                result, err := tx.Exec(`
+                        DELETE FROM public.wali_kelas
+                        WHERE id=$1`,
+                        id)
+                rows, _ = result.RowsAffected()
+
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletewali_kelas: delete data failed"))
+                }</span>
+        }
+
+        <span class="cov8" title="1">err = tx.Commit()
+        if err != nil </span><span class="cov0" title="0">{
+                return apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "deletewali_kelas: commit transaction failed"))
+        }</span>
+
+        <span class="cov8" title="1">if rows == 0 </span><span class="cov8" title="1">{
+                return apierror.NewError(http.StatusNotFound, http.StatusNotFound, "Wali_Kelas with id: "+id+" is not exists", errors.Wrap(err, "deletewali_kelas: wali_kelas with id: "+id+" is not exists"))
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

@@ -77,6 +77,14 @@ func main() {
 			ServiceFile:    "../service/siswa.go",
 			SchemaFile:     "../api/schema/siswa.go",
 		},
+		{
+			Skip:           true,
+			Model:          "User",
+			ModelLowerCase: "user",
+			ControllerFile: "../api/controller/user.go",
+			ServiceFile:    "../service/user.go",
+			SchemaFile:     "../api/schema/user.go",
+		},
 	}
 
 	// Create file

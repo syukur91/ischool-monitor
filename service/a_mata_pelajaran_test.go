@@ -17,6 +17,7 @@ var mataPelajaranService *Mata_PelajaranService
 var kelasService *KelasService
 var waliKelasService *Wali_KelasService
 var siswaService *SiswaService
+var userService *UserService
 
 func TestMain(m *testing.M) {
 	if len(os.Getenv("TEST_DB_CONNECTION_STR")) == 0 {
@@ -33,6 +34,7 @@ func TestMain(m *testing.M) {
 	kelasService = NewKelasService(db)
 	waliKelasService = NewWali_KelasService(db)
 	siswaService = NewSiswaService(db)
+	userService = NewUserService(db)
 
 	code := m.Run()
 	os.Exit(code)

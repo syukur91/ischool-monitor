@@ -16,7 +16,11 @@ run:
 
 test: migrate-down-test migrate-up-test
 	export $$(cat .env | xargs) && \
-	go clean -testcache && go test github.com/syukur91/ischool-monitor/service -v
+	go clean -testcache && go test -coverprofile cover.out github.com/syukur91/ischool-monitor/service -v
+
+test-cover: migrate-down-test migrate-up-test
+	export $$(cat .env | xargs) && \
+	go clean -testcache && go test -coverprofile cover.out github.com/syukur91/ischool-monitor/service -v  && go tool cover -html=cover.out 
 
 rebuild-db: migrate-down-test migrate-up-test
 
