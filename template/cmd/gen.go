@@ -46,12 +46,36 @@ func main() {
 		Skip           bool
 	}{
 		{
-			Skip:           false,
+			Skip:           true,
 			Model:          "Mata_Pelajaran",
 			ModelLowerCase: "mata_pelajaran",
 			ControllerFile: "../api/controller/mata_pelajaran.go",
 			ServiceFile:    "../service/mata_pelajaran.go",
 			SchemaFile:     "../api/schema/mata_pelajaran.go",
+		},
+		{
+			Skip:           true,
+			Model:          "Kelas",
+			ModelLowerCase: "kelas",
+			ControllerFile: "../api/controller/kelas.go",
+			ServiceFile:    "../service/kelas.go",
+			SchemaFile:     "../api/schema/kelas.go",
+		},
+		{
+			Skip:           true,
+			Model:          "Wali_Kelas",
+			ModelLowerCase: "wali_kelas",
+			ControllerFile: "../api/controller/wali_kelas.go",
+			ServiceFile:    "../service/wali_kelas.go",
+			SchemaFile:     "../api/schema/wali_kelas.go",
+		},
+		{
+			Skip:           true,
+			Model:          "Siswa",
+			ModelLowerCase: "siswa",
+			ControllerFile: "../api/controller/siswa.go",
+			ServiceFile:    "../service/siswa.go",
+			SchemaFile:     "../api/schema/siswa.go",
 		},
 	}
 

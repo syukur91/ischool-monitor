@@ -1,91 +1,31 @@
 package service
 
 import (
-	"log"
-	"os"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/syukur91/ischool-monitor/api/schema"
 	"github.com/syukur91/ischool-monitor/pkg/query"
-
-	"github.com/arifsetiawan/go-common/env"
 )
 
-var mataPelajaranService *Mata_PelajaranService
-var kelasService *KelasService
-var waliKelasService *Wali_KelasService
-var siswaService *SiswaService
-
-func TestMain(m *testing.M) {
-	if len(os.Getenv("TEST_DB_CONNECTION_STR")) == 0 {
-		log.Fatalln("Database connection string is not set. Set TEST_DB_CONNECTION_STR in environment")
-	}
-
-	db, err := sqlx.Connect(env.Getenv("TEST_DB_DRIVER", "postgres"), os.Getenv("TEST_DB_CONNECTION_STR"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer db.Close()
-
-	mataPelajaranService = NewMata_PelajaranService(db)
-	kelasService = NewKelasService(db)
-	waliKelasService = NewWali_KelasService(db)
-	siswaService = NewSiswaService(db)
-
-	code := m.Run()
-	os.Exit(code)
-}
-
-func TestCreateMataPelajaran(t *testing.T) {
+func TestCreateKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName   string
 		nama           string
-		kode           string
 		tingkat        int
 		expectedErrMsg string
 	}{
 		{
 			scenarioName: "Successful add",
-			nama:         "PPKN",
-			kode:         "KD_PPKN_1",
-			tingkat:      1,
-		},
-		{
-			scenarioName:   "Failure add: mata pelajaran kode is not set",
-			nama:           "PENJASKES",
-			kode:           "",
-			tingkat:        1,
-			expectedErrMsg: "Mata_Pelajaran kode is not set",
-		},
-		{
-			scenarioName:   "Failure add: mata pelajaran with same kode exist",
-			nama:           "PPKN",
-			kode:           "KD_PPKN_1",
-			tingkat:        1,
-			expectedErrMsg: "Mata_Pelajaran with same kode already exists. Use different kode",
-		},
-		{
-			scenarioName:   "Failure add: mata pelajaran kode is not set",
-			nama:           "PPKN",
-			kode:           "",
-			tingkat:        1,
-			expectedErrMsg: "Mata_Pelajaran kode is not set",
-		},
-		{
-			scenarioName: "Successful add: another mata pelajaran",
-			nama:         "PENJASKES",
-			kode:         "KD_PENJASKES_1",
-			tingkat:      1,
+			nama:         "XII IPA 1",
+			tingkat:      3,
 		},
 	}
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			_, err := mataPelajaranService.CreateMata_Pelajaran(&schema.CreateMata_PelajaranRequest{
+			_, err := kelasService.CreateKelas(&schema.CreateKelasRequest{
 				Nama:    v.nama,
-				Kode:    v.kode,
 				Tingkat: v.tingkat,
 			})
 			//t.Logf("%+v, %+v", v, err)
@@ -103,7 +43,7 @@ func TestCreateMataPelajaran(t *testing.T) {
 	}
 }
 
-func TestListPaginationMataPelajaran(t *testing.T) {
+func TestListPaginationKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName      string
 		query             query.GridParams
@@ -117,53 +57,49 @@ func TestListPaginationMataPelajaran(t *testing.T) {
 			query:             query.GridParams{Take: 2, Page: 1, Skip: 0, PageSize: 2},
 			expectedLength:    2,
 			expectedTotal:     5,
-			expectedFirstKode: "KD_PPKN_1",
+			expectedFirstKode: "XII IPA 1",
 		},
 		{
 			scenarioName:      "get second 2",
 			query:             query.GridParams{Take: 2, Page: 2, Skip: 2, PageSize: 2},
 			expectedLength:    2,
 			expectedTotal:     5,
-			expectedFirstKode: "KD_PPKN_2",
+			expectedFirstKode: "XII IPA 3",
 		},
 		{
 			scenarioName:      "get third 1",
 			query:             query.GridParams{Take: 2, Page: 2, Skip: 4, PageSize: 2},
 			expectedLength:    1,
 			expectedTotal:     5,
-			expectedFirstKode: "KD_PENJASKES_2",
+			expectedFirstKode: "XII IPA 5",
 		},
 	}
 
 	// insert 4 more data
-	mataPelajaranService.CreateMata_Pelajaran(&schema.CreateMata_PelajaranRequest{
-		Nama:    "PPKN",
-		Kode:    "KD_PPKN_2",
-		Tingkat: 2,
-	})
-
-	mataPelajaranService.CreateMata_Pelajaran(&schema.CreateMata_PelajaranRequest{
-		Nama:    "PPKN",
-		Kode:    "KD_PPKN_3",
+	kelasService.CreateKelas(&schema.CreateKelasRequest{
+		Nama:    "XII IPA 2",
 		Tingkat: 3,
 	})
 
-	mataPelajaranService.CreateMata_Pelajaran(&schema.CreateMata_PelajaranRequest{
-		Nama:    "PENJASKES",
-		Kode:    "KD_PENJASKES_1",
-		Tingkat: 1,
+	kelasService.CreateKelas(&schema.CreateKelasRequest{
+		Nama:    "XII IPA 3",
+		Tingkat: 3,
 	})
 
-	mataPelajaranService.CreateMata_Pelajaran(&schema.CreateMata_PelajaranRequest{
-		Nama:    "PENJASKES",
-		Kode:    "KD_PENJASKES_2",
-		Tingkat: 2,
+	kelasService.CreateKelas(&schema.CreateKelasRequest{
+		Nama:    "XII IPA 4",
+		Tingkat: 3,
+	})
+
+	kelasService.CreateKelas(&schema.CreateKelasRequest{
+		Nama:    "XII IPA 5",
+		Tingkat: 3,
 	})
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			mataPelajarans, total, err := mataPelajaranService.ListMata_Pelajarans(&v.query)
-			//t.Logf("%+v, %+v", v, err)
+			kelass, total, err := kelasService.ListKelass(&v.query)
+			// t.Logf("%+v, %+v", v, err)
 
 			errMsg := ""
 			if err != nil {
@@ -177,13 +113,13 @@ func TestListPaginationMataPelajaran(t *testing.T) {
 
 			if errMsg == "" {
 
-				if len(mataPelajarans) != v.expectedLength {
-					t.Errorf("expect len %d, but got %d", v.expectedLength, len(mataPelajarans))
+				if len(kelass) != v.expectedLength {
+					t.Errorf("expect len %d, but got %d", v.expectedLength, len(kelass))
 					return
 				}
 
-				if mataPelajarans[0].Kode != v.expectedFirstKode {
-					t.Errorf("expect name %s, but got %s", v.expectedFirstKode, mataPelajarans[0].Kode)
+				if kelass[0].Nama != v.expectedFirstKode {
+					t.Errorf("expect name %s, but got %s", v.expectedFirstKode, kelass[0].Nama)
 					return
 				}
 
@@ -196,7 +132,7 @@ func TestListPaginationMataPelajaran(t *testing.T) {
 	}
 }
 
-func TestListFilterMataPelajaran(t *testing.T) {
+func TestListFilterKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName   string
 		query          query.GridParams
@@ -216,15 +152,15 @@ func TestListFilterMataPelajaran(t *testing.T) {
 					Logic: "and",
 					Filters: []query.GridFilter{
 						query.GridFilter{
-							Field:    "kode",
+							Field:    "nama",
 							Operator: "contains",
-							Value:    "PPKN",
+							Value:    "XII IPA",
 						},
 					},
 				},
 			},
-			expectedLength: 3,
-			expectedTotal:  3,
+			expectedLength: 5,
+			expectedTotal:  5,
 		},
 		{
 			scenarioName: "get nextwhat",
@@ -238,9 +174,9 @@ func TestListFilterMataPelajaran(t *testing.T) {
 					Logic: "and",
 					Filters: []query.GridFilter{
 						query.GridFilter{
-							Field:    "kode",
+							Field:    "nama",
 							Operator: "contains",
-							Value:    "NextWhat",
+							Value:    "XII IPS",
 						},
 					},
 				},
@@ -252,8 +188,8 @@ func TestListFilterMataPelajaran(t *testing.T) {
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			mataPelajarans, total, err := mataPelajaranService.ListMata_Pelajarans(&v.query)
-			//t.Logf("%+v, %+v", v, err)
+			kelass, total, err := kelasService.ListKelass(&v.query)
+			// t.Logf("%+v, %+v", v, err)
 
 			errMsg := ""
 			if err != nil {
@@ -267,8 +203,8 @@ func TestListFilterMataPelajaran(t *testing.T) {
 
 			if errMsg == "" {
 
-				if len(mataPelajarans) != v.expectedLength {
-					t.Errorf("expect len %d, but got %d", v.expectedLength, len(mataPelajarans))
+				if len(kelass) != v.expectedLength {
+					t.Errorf("expect len %d, but got %d", v.expectedLength, len(kelass))
 					return
 				}
 
@@ -281,13 +217,13 @@ func TestListFilterMataPelajaran(t *testing.T) {
 	}
 }
 
-func TestListSortMataPelajaran(t *testing.T) {
+func TestListSortKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName        string
 		query               query.GridParams
 		expectedLength      int
 		expectedTotal       int
-		expectedSortedKodes []string
+		expectedSortedNames []string
 		expectedErrMsg      string
 	}{
 		{
@@ -302,29 +238,29 @@ func TestListSortMataPelajaran(t *testing.T) {
 					Logic: "and",
 					Filters: []query.GridFilter{
 						query.GridFilter{
-							Field:    "kode",
+							Field:    "nama",
 							Operator: "contains",
-							Value:    "PPKN",
+							Value:    "XII IPA",
 						},
 					},
 				},
 				HasSort: true,
 				Sort: []query.GridSort{
 					query.GridSort{
-						Field: "kode",
+						Field: "nama",
 						Dir:   "asc",
 					},
 				},
 			},
-			expectedLength:      3,
-			expectedTotal:       3,
-			expectedSortedKodes: []string{"KD_PPKN_1", "KD_PPKN_2", "KD_PPKN_3"},
+			expectedLength:      5,
+			expectedTotal:       5,
+			expectedSortedNames: []string{"XII IPA 1", "XII IPA 2", "XII IPA 3"},
 		},
 	}
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			mataPelajarans, total, err := mataPelajaranService.ListMata_Pelajarans(&v.query)
+			kelass, total, err := kelasService.ListKelass(&v.query)
 			//t.Logf("%+v, %+v", v, err)
 
 			errMsg := ""
@@ -339,18 +275,18 @@ func TestListSortMataPelajaran(t *testing.T) {
 
 			if errMsg == "" {
 
-				if len(mataPelajarans) != v.expectedLength {
-					t.Errorf("expect len %d, but got %d", v.expectedLength, len(mataPelajarans))
+				if len(kelass) != v.expectedLength {
+					t.Errorf("expect len %d, but got %d", v.expectedLength, len(kelass))
 					return
 				}
 
-				if mataPelajarans[0].Kode != v.expectedSortedKodes[0] {
-					t.Errorf("expect name %s and index 0, but got %s", v.expectedSortedKodes[0], mataPelajarans[0].Kode)
+				if kelass[0].Nama != v.expectedSortedNames[0] {
+					t.Errorf("expect name %s and index 0, but got %s", v.expectedSortedNames[0], kelass[0].Nama)
 					return
 				}
 
-				if mataPelajarans[2].Kode != v.expectedSortedKodes[2] {
-					t.Errorf("expect name %s and index 2, but got %s", v.expectedSortedKodes[2], mataPelajarans[2].Kode)
+				if kelass[2].Nama != v.expectedSortedNames[2] {
+					t.Errorf("expect name %s and index 2, but got %s", v.expectedSortedNames[2], kelass[2].Nama)
 					return
 				}
 
@@ -363,7 +299,7 @@ func TestListSortMataPelajaran(t *testing.T) {
 	}
 }
 
-func TestGetMataPelajaran(t *testing.T) {
+func TestGetKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName   string
 		id             string
@@ -373,25 +309,24 @@ func TestGetMataPelajaran(t *testing.T) {
 		{
 			scenarioName: "Successful get by id",
 			id:           "1",
-			nama:         "PPKN",
+			nama:         "XII IPA 1",
 		},
 		{
-			scenarioName:   "Failure get: mata pelajaran with id not exists",
+			scenarioName:   "Failure get: kelas with id not exists",
 			id:             "10",
 			nama:           "NextWhat",
-			expectedErrMsg: "Mata_Pelajaran with id: 10 is not exists",
+			expectedErrMsg: "Kelas with id: 10 is not exists",
 		},
 	}
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			getMataPelajaranResponse, err := mataPelajaranService.GetMata_Pelajaran(v.id)
+			getKelasResponse, err := kelasService.GetKelas(v.id)
 			//t.Logf("%+v, %+v", v, err)
 
 			errMsg := ""
 			if err != nil {
 				errMsg = err.Error()
-
 				//ae, _ := err.(*apierror.APIError)
 				//t.Logf("%+v", ae.Err)
 			}
@@ -403,13 +338,13 @@ func TestGetMataPelajaran(t *testing.T) {
 
 			// If error is empty, check for response
 			if errMsg == "" {
-				if getMataPelajaranResponse == nil {
+				if getKelasResponse == nil {
 					t.Errorf("expect response, but got nil")
 					return
 				}
 
-				if v.nama != getMataPelajaranResponse.Nama {
-					t.Errorf("expect name %s, but got %s", v.nama, getMataPelajaranResponse.Nama)
+				if v.nama != getKelasResponse.Nama {
+					t.Errorf("expect name %s, but got %s", v.nama, getKelasResponse.Nama)
 					return
 				}
 			}
@@ -418,7 +353,7 @@ func TestGetMataPelajaran(t *testing.T) {
 	}
 }
 
-func TestUpdateMataPelajaran(t *testing.T) {
+func TestUpdateKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName    string
 		id              string
@@ -432,29 +367,28 @@ func TestUpdateMataPelajaran(t *testing.T) {
 		{
 			scenarioName:    "Successful name update by id",
 			id:              "1",
-			nama:            "PPKN2",
-			expectedNama:    "PPKN2",
-			expectedTingkat: 1,
+			nama:            "XI IPA 1",
+			expectedNama:    "XI IPA 1",
+			expectedTingkat: 3,
 		},
 		{
 			scenarioName:    "Successful tingkat update by id",
 			id:              "1",
-			expectedNama:    "PPKN2",
+			expectedNama:    "XI IPA 1",
 			tingkat:         2,
 			expectedTingkat: 2,
 		},
 		{
-			scenarioName:   "Failure update: mata pelajaran with id not exists",
+			scenarioName:   "Failure update: kelas with id not exists",
 			id:             "10",
-			expectedErrMsg: "Mata_Pelajaran with id: 10 is not exists",
+			expectedErrMsg: "Kelas with id: 10 is not exists",
 		},
 	}
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			updatedMataPelajaranResponse, err := mataPelajaranService.UpdateMata_Pelajaran(v.id, &schema.UpdateMata_PelajaranRequest{
+			updatedKelasResponse, err := kelasService.UpdateKelas(v.id, &schema.UpdateKelasRequest{
 				Nama:    v.nama,
-				Kode:    v.kode,
 				Tingkat: v.tingkat,
 			})
 			//t.Logf("%+v, %+v", v, err)
@@ -470,18 +404,18 @@ func TestUpdateMataPelajaran(t *testing.T) {
 			}
 
 			if errMsg == "" {
-				if updatedMataPelajaranResponse == nil {
+				if updatedKelasResponse == nil {
 					t.Errorf("expect response, but got nil")
 					return
 				}
 
-				if v.expectedNama != updatedMataPelajaranResponse.Nama {
-					t.Errorf("expect nama %s, but got %s", v.expectedNama, updatedMataPelajaranResponse.Nama)
+				if v.expectedNama != updatedKelasResponse.Nama {
+					t.Errorf("expect nama %s, but got %s", v.expectedNama, updatedKelasResponse.Nama)
 					return
 				}
 
-				if v.expectedTingkat != updatedMataPelajaranResponse.Tingkat {
-					t.Errorf("expect tingkat %d, but got %d", v.expectedTingkat, updatedMataPelajaranResponse.Tingkat)
+				if v.expectedTingkat != updatedKelasResponse.Tingkat {
+					t.Errorf("expect tingkat %d, but got %d", v.expectedTingkat, updatedKelasResponse.Tingkat)
 					return
 				}
 			}
@@ -489,7 +423,7 @@ func TestUpdateMataPelajaran(t *testing.T) {
 	}
 }
 
-func TestDeleteMataPelajaran(t *testing.T) {
+func TestDeleteKelas(t *testing.T) {
 	testScenarios := []struct {
 		scenarioName   string
 		id             string
@@ -500,15 +434,15 @@ func TestDeleteMataPelajaran(t *testing.T) {
 			id:           "4",
 		},
 		{
-			scenarioName:   "Failure delete: mata pelajaran with id not exists",
+			scenarioName:   "Failure delete: kelas with id not exists",
 			id:             "10",
-			expectedErrMsg: "Mata_Pelajaran with id: 10 is not exists",
+			expectedErrMsg: "Kelas with id: 10 is not exists",
 		},
 	}
 
 	for _, v := range testScenarios {
 		t.Run(v.scenarioName, func(t *testing.T) {
-			err := mataPelajaranService.DeleteMata_Pelajaran(v.id)
+			err := kelasService.DeleteKelas(v.id)
 			//t.Logf("%+v, %+v", v, err)
 
 			errMsg := ""
