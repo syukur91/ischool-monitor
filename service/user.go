@@ -104,7 +104,7 @@ func (s *UserService) GetUser(id string) (*schema.UserResponse, error) {
 	{
 		err := tx.Get(&user, `
 			SELECT id,nama,alamat,password,telepon,created_at,updated_at 
-			FROM public.users 
+			FROM public.user
 			WHERE id=$1;`,
 			id)
 
@@ -138,7 +138,7 @@ func (s *UserService) ListUsers(gridParams *query.GridParams) ([]schema.UserResp
 	users := []schema.UserResponse{}
 	total := 0
 	{
-		dataStatement := "SELECT id,nama,alamat,password,telepon,created_at,updated_at FROM public.users"
+		dataStatement := "SELECT id,nama,alamat,password,telepon,created_at,updated_at FROM public.user"
 		dataQuery, dataParams := query.FullQuery(gridParams, "", nil)
 		err := tx.Select(&users, dataStatement+dataQuery, dataParams...)
 		if err != nil {
@@ -146,7 +146,7 @@ func (s *UserService) ListUsers(gridParams *query.GridParams) ([]schema.UserResp
 			return nil, 0, apierror.NewError(http.StatusInternalServerError, http.StatusInternalServerError, "Database transaction failed", errors.Wrap(err, "listuser: get data failed"))
 		}
 
-		countStatement := "SELECT count(*) FROM public.users"
+		countStatement := "SELECT count(*) FROM public.user"
 		countQuery, countParams := query.FilterQuery(gridParams, "", nil)
 		err = tx.QueryRow(countStatement+countQuery, countParams...).Scan(&total)
 		if err != nil {
@@ -179,7 +179,7 @@ func (s *UserService) UpdateUser(id string, request *schema.UpdateUserRequest) (
 	{
 		err := tx.Get(&user, `
 			SELECT id,nama,alamat,password,telepon,created_at,updated_at 
-			FROM public.users 
+			FROM public.user
 			WHERE id=$1;`,
 			id)
 
@@ -215,7 +215,7 @@ func (s *UserService) UpdateUser(id string, request *schema.UpdateUserRequest) (
 		}
 
 		err := tx.QueryRow(`
-			UPDATE public.users SET nama=$1,alamat=$2,password=$3,telepon=$4,updated_at=DEFAULT
+			UPDATE public.user SET nama=$1,alamat=$2,password=$3,telepon=$4,updated_at=DEFAULT
 			WHERE id=$5 returning updated_at `,
 			user.Nama, user.Alamat, user.Password, user.Telepon, id).Scan(&updatedAt)
 
@@ -256,7 +256,7 @@ func (s *UserService) DeleteUser(id string) error {
 	var rows int64
 	{
 		result, err := tx.Exec(`
-			DELETE FROM public.users 
+			DELETE FROM public.user
 			WHERE id=$1`,
 			id)
 		rows, _ = result.RowsAffected()
